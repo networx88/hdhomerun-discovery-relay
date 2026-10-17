@@ -1,32 +1,33 @@
-# HDHomeRun discovery across UniFi VLANs and Site Magic
+# HDHomeRun discovery across subnets and routed VPNs
 
-A small Python discovery relay for native HDHomeRun apps across a Layer 3 boundary. Run it on the gateway at the **client's site**, where the client's discovery broadcast can be received. A client on the HDHomeRun's own subnet does not need it.
+A small Python discovery relay for native HDHomeRun apps when clients and the HDHomeRun are on different subnets.
+
+Use it between VLANs at one site, or across a routed VPN such as **Ubiquiti UniFi Site Magic, OpenVPN, or a point-to-point IPsec VPN**. Run the relay on the gateway serving the clients, where it can receive their discovery broadcasts. Devices on the HDHomeRun's own subnet already discover it directly.
 
 The relay receives UDP 65001 discovery requests, queries one configured HDHomeRun by unicast, validates the reply, and returns it to the client with the HDHomeRun source address. Once discovered, clients stream directly from the HDHomeRun. No video proxy or transcoding is involved.
 
-Custom service tested on a UDM and UDM Pro running UniFi OS 5.1.33 with Python 3.9. It is not an official Ubiquiti or SiliconDust feature. Normal reboot startup is configured through systemd; an actual reboot test was not performed during the initial installation. Firmware upgrades may require reapplication.
+Tested on a UDM and UDM Pro running UniFi OS 5.1.33 with Python 3.9. The installer enables startup at boot. This is a custom service, independent of Ubiquiti and SiliconDust.
 
 ## Requirements
 
 - Root SSH access to the client-side gateway.
 - Python 3, systemd, and iptables. No third-party Python packages.
 - Routed access from the gateway and client subnet to the HDHomeRun, including a working return route.
-- Non-overlapping routed client/tuner site networks, or separately configured NAT. This relay does not solve overlapping subnets for direct playback.
 - A stable HDHomeRun address, preferably a DHCP reservation.
 
 ## Setup
 
 1. Copy this folder to a staging directory on the gateway, such as `/data/hdhr-recovery`.
-2. Copy `config.example` to a new file and edit its example addresses and interface names. Identify bridge addresses with `ip -4 addr`; do not assume VLAN names map to the examples.
+2. Edit the addresses and interface names in `config.example`. Use `ip -4 addr` to identify your local interfaces.
 3. From the staging folder, run as root:
 
 ```sh
 sh install.sh /data/hdhr-recovery/config.example
 ```
 
-The supplied example places clients on `192.168.50.0/24`, gateway `192.168.50.1`, interface `br0`, with a remote HDHomeRun at `192.168.20.254`. Replace those values with your actual network.
+The example uses client subnet `192.168.50.0/24`, gateway `192.168.50.1`, interface `br0`, and HDHomeRun address `192.168.20.254`. The HDHomeRun can be on another local subnet or at a remote site reached through the VPN.
 
-`GATEWAY` must be a local address on the client subnet, with a valid route and return route to the tuner. Site Magic must share the required subnets. A different remote site needs a relay at that site's client network too.
+`GATEWAY` is the local address on the client subnet. Ensure clients and the relay can reach the HDHomeRun through local routing or the VPN. With Site Magic, share the required subnets. Each client site crossing a Layer 3 boundary needs its own relay.
 
 ## Firewall behavior
 
@@ -36,7 +37,9 @@ The installer creates custom OS iptables chains, not UniFi UI policies:
 - `HDHRD_OUTPUT`: relay queries to the configured HDHomeRun and discovery replies to local clients.
 - `HDHRD_FORWARD`: local bridge (`br+`) and Site Magic (`wgsts+`) ingress to the one HDHomeRun address, TCP 80/5004/65001 and UDP 65001, plus established/related return traffic.
 
-No tuner WAN/Internet ingress permit or port forward is created. These rules allow any client arriving through the configured internal/Site Magic interfaces to reach those tuner ports. Existing unrelated firewall policies are preserved.
+The supplied firewall defaults allow local bridges and Site Magic interfaces. For OpenVPN or IPsec, adapt `CLIENT_INTERFACES` and the VPN firewall policy to your platform. Route-based VPNs can use their tunnel interface names; policy-based IPsec needs an explicit VPN policy match. Do not substitute an unrestricted WAN interface.
+
+No Internet-facing tuner permit or port forward is created.
 
 A systemd timer checks once per minute and restores these explicit rules if UniFi rebuilds the firewall. Stop the timer when intentionally removing the custom rules.
 
@@ -67,8 +70,6 @@ sh /data/hdhr-discovery/firewall.sh start
 systemctl enable --now hdhr-discovery@other.service
 ```
 
-Clients on the tuner subnet already have native discovery and do not need a relay listener.
-
 ## Verify
 
 ```sh
@@ -81,8 +82,6 @@ iptables -nvL HDHRD_FORWARD
 ```
 
 Open `http://YOUR_HDHomeRun_IP/discover.json` from a client, then restart the native app and play a channel. The relay logs successful discovery responses with client addresses. Additional listener logs use `journalctl -u hdhr-discovery@other.service`.
-
-Discovery success does not guarantee codec support. Fire TV may handle HEVC/AC-4 and MPEG-2/AC-3 channels differently; try Stereo/PCM settings if audio passthrough causes trouble. Also check VPN routing on the playback device itself.
 
 ## Reapply after an upgrade
 
