@@ -1,0 +1,10 @@
+[Unit]
+Description=Check explicit HDHomeRun firewall rules every minute
+
+[Timer]
+OnBootSec=45
+OnUnitActiveSec=60
+Unit=hdhr-discovery-firewall.service
+
+[Install]
+WantedBy=timers.target

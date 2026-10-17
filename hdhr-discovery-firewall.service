@@ -1,0 +1,8 @@
+[Unit]
+Description=Restore explicit HDHomeRun firewall rules after UniFi reprovisioning
+Requires=hdhr-discovery.service
+After=hdhr-discovery.service
+
+[Service]
+Type=oneshot
+ExecStart=/data/hdhr-discovery/firewall.sh start

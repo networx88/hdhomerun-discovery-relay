@@ -1,0 +1,21 @@
+[Unit]
+Description=HDHomeRun discovery on local network %i
+Requires=hdhr-discovery.service
+After=hdhr-discovery.service
+PartOf=hdhr-discovery.service
+
+[Service]
+Type=simple
+EnvironmentFile=/data/hdhr-discovery/%i.conf
+ExecStart=/usr/bin/python3 -u /data/hdhr-discovery/relay.py --interface ${INTERFACE} --network ${NETWORK} --gateway ${GATEWAY} --tuner ${TUNER} --upstream ${UPSTREAM}
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_UNIX AF_NETLINK
+CapabilityBoundingSet=CAP_NET_RAW
+
+[Install]
+WantedBy=multi-user.target

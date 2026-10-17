@@ -1,0 +1,9 @@
+# Edit for the gateway on the client side of the Layer 3 boundary.
+INTERFACE=br0
+NETWORK=192.168.50.0/24
+GATEWAY=192.168.50.1
+TUNER=192.168.20.254
+# All local interfaces/subnets where a relay will listen.
+LISTEN_NETWORKS="br0:192.168.50.0/24"
+# iptables interface prefixes: local bridges and UniFi Site Magic only.
+CLIENT_INTERFACES="br+ wgsts+"
